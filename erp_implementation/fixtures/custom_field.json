@@ -1,0 +1,23 @@
+[
+  {
+    "doctype": "Custom Field",
+    "name": "User Permission-managed_by_erp_implementation",
+    "dt": "User Permission",
+    "fieldname": "managed_by_erp_implementation",
+    "label": "Managed By ERP Implementation",
+    "fieldtype": "Check",
+    "insert_after": "allow",
+    "default": "0",
+    "module": "ERP Implementation"
+  },
+  {
+    "doctype": "Custom Field",
+    "name": "User Permission-erp_implementation_source",
+    "dt": "User Permission",
+    "fieldname": "erp_implementation_source",
+    "label": "ERP Implementation Source",
+    "fieldtype": "Data",
+    "insert_after": "managed_by_erp_implementation",
+    "module": "ERP Implementation"
+  }
+]
