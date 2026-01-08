@@ -1,11 +1,14 @@
 import frappe
 
-MANAGED_PREFIX = "erp_implementation: managed"
+MANAGED_PREFIX = "erp_implementation: managed (source=Project.users)"
 logger = frappe.logger("erp_implementation")
 
-def _get_project_team_users(project_name: str) -> set[str]:
+def _get_project_users(project_name: str) -> set[str]:
+    # Confirmed schema:
+    # Project has table field `users` -> child doctype `Project User`
+    # Child field that stores user is `user` (Link -> User)
     rows = frappe.get_all(
-        "Project Team",
+        "Project User",
         filters={"parent": project_name, "parenttype": "Project"},
         fields=["user"],
     )
@@ -17,18 +20,18 @@ def _get_managed_user_permissions_for_project(project_name: str) -> dict[str, st
         filters={"allow": "Project", "for_value": project_name},
         fields=["name", "user", "description"],
     )
-    out = {}
+    out: dict[str, str] = {}
     for p in perms:
         if (p.get("description") or "").startswith(MANAGED_PREFIX) and p.get("user"):
             out[p["user"]] = p["name"]
     return out
 
 def sync_project_user_permissions(project_name: str, dry_run: bool = False) -> dict:
-    team_users = _get_project_team_users(project_name)
+    users = _get_project_users(project_name)
     managed = _get_managed_user_permissions_for_project(project_name)
 
-    to_create = sorted(team_users - set(managed.keys()))
-    to_remove = sorted(set(managed.keys()) - team_users)
+    to_create = sorted(users - set(managed.keys()))
+    to_remove = sorted(set(managed.keys()) - users)
 
     created, removed = [], []
 
@@ -41,7 +44,7 @@ def sync_project_user_permissions(project_name: str, dry_run: bool = False) -> d
             "user": user,
             "allow": "Project",
             "for_value": project_name,
-            "description": f"{MANAGED_PREFIX} (source=Project Team)",
+            "description": MANAGED_PREFIX,
         })
         doc.insert(ignore_permissions=True)
         created.append(doc.name)
@@ -59,10 +62,11 @@ def sync_project_user_permissions(project_name: str, dry_run: bool = False) -> d
 
     summary = {
         "project": project_name,
-        "team_users": len(team_users),
+        "source_users": len(users),
         "managed_permissions": len(managed),
         "created": created,
         "removed": removed,
+        "dry_run": dry_run,
     }
     logger.info(summary)
     return summary
@@ -70,10 +74,14 @@ def sync_project_user_permissions(project_name: str, dry_run: bool = False) -> d
 def reconcile_all_projects(dry_run: bool = False, limit: int | None = None) -> dict:
     projects = frappe.get_all("Project", fields=["name"], limit=limit)
     results = []
+    errors = []
+
     for p in projects:
+        name = p["name"]
         try:
-            results.append(sync_project_user_permissions(p["name"], dry_run=dry_run))
-        except Exception:
-            logger.exception(f"Failed reconcile for Project {p[name]}")
-            results.append({"project": p["name"], "error": True})
-    return {"count": len(projects), "results": results}
+            results.append(sync_project_user_permissions(name, dry_run=dry_run))
+        except Exception as e:
+            logger.exception(f"Failed reconcile for Project {name}")
+            errors.append({"project": name, "error": str(e)})
+
+    return {"count": len(projects), "errors": errors, "results": results}
