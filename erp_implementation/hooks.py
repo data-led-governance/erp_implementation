@@ -144,6 +144,12 @@ app_license = "mit"
 # 		"on_trash": "method"
 # 	}
 # }
+doc_events = {
+	"Project": {
+		"on_update": "erp_implementation.project_permissions.sync.on_project_update",
+		"after_insert": "erp_implementation.project_permissions.sync.on_project_update",
+	}
+}
 
 # Scheduled Tasks
 # ---------------
@@ -165,6 +171,11 @@ app_license = "mit"
 # 		"erp_implementation.tasks.monthly"
 # 	],
 # }
+scheduler_events = {
+	"daily": [
+		"erp_implementation.project_permissions.sync.reconcile_all_projects"
+	]
+}
 
 # Testing
 # -------
@@ -241,4 +252,3 @@ app_license = "mit"
 # default_log_clearing_doctypes = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
-
